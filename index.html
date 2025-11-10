@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<title>輔大圖書館 WebAR｜闖關集點卡（動態場景修正版）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"/>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.3/dist/mindar-image-aframe.prod.js"></script>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#fff;
+    font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif}
+
+  /* 載入畫面 */
+  #splash{position:fixed;inset:0;z-index:2000;background:#fff;
+    display:grid;place-items:center;transition:opacity .35s ease}
+  #splash .box{display:grid;place-items:center;gap:10px}
+  #splash img{width:min(42vw,200px);height:auto}
+  #splash .txt{font-size:14px;color:#333;letter-spacing:.1em}
+
+  /* 登入 */
+  #gate{position:fixed;inset:0;z-index:1200;background:#fff;
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{width:min(92vw,520px);padding:20px;border-radius:16px;
+    box-shadow:0 8px 24px rgba(0,0,0,.12);background:#fff}
+  .card h1{margin:0 0 12px 0;font-size:20px}
+  .grid{display:grid;gap:12px}
+  .row{display:grid;gap:6px}
+  label{font-size:14px}
+  input{padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:16px}
+  button.primary{margin-top:6px;padding:12px 16px;border:0;border-radius:12px;
+    background:#0ea5e9;color:#fff;font-size:16px;cursor:pointer}
+  .note{margin-top:8px;font-size:12px;color:#666}
+
+  /* 集點卡 */
+  #stamp{position:fixed;inset:0;z-index:1000;display:none;
+    flex-direction:column;align-items:center;justify-content:center;background:#fff}
+  #who{position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.06);font-size:13px}
+  #posterWrap{position:relative;width:min(92vw,960px);aspect-ratio:3/2}
+  #poster{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;border-radius:16px;box-shadow:0 6px 22px rgba(0,0,0,.12)}
+  .spot{position:absolute;transform:translate(-50%,-50%);border:0;background:transparent;
+    width:32%;height:32%;cursor:pointer;padding:0}
+  /* 1=AB 右上, 2=SB 右下, 3=MB 左上, 4=舒德樓 左下 */
+  .pos-1{left:77%;top:28%} /* AB */
+  .pos-2{left:77%;top:72%} /* SB */
+  .pos-3{left:23%;top:28%} /* MB */
+  .pos-4{left:23%;top:72%} /* 舒德樓 */
+  .badge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    padding:6px 10px;border-radius:10px;font-weight:700;font-size:14px;
+    backdrop-filter:blur(4px);white-space:nowrap;pointer-events:none}
+  .pending{background:rgba(0,0,0,.45);color:#fff}
+  .passed{background:rgba(16,185,129,.9);color:#fff}
+
+  /* AR 掃描層（透明） */
+  #arLayer{position:fixed;inset:0;z-index:1;display:none;background:transparent}
+  /* 動態掛載點：a-scene 會被塞進 #arMount 內 */
+  #arMount{position:fixed;inset:0}
+  video,canvas,.a-canvas,.mindar-ui-overlay,.mindar-ui-scanning,.mindar-ui-loading{
+    position:fixed !important;left:0 !important;top:0 !important;width:100vw !important;height:100vh !important;object-fit:cover !important;background:transparent !important}
+  .a-enter-vr{display:none !important}
+  #backBtn{position:fixed;left:12px;top:12px;z-index:1200;display:none;background:rgba(0,0,0,.6);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:14px}
+
+  #scanOverlay{position:fixed;inset:0;z-index:1100;display:none;background:transparent;pointer-events:none;display:grid;place-items:center}
+  #scanImg{width:min(80vw,420px);height:auto;opacity:.95;animation:scanPulse 2s ease-in-out infinite}
+  @keyframes scanPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+  img[src=""],img:not([src]){display:none!important}
+
+  /* 診斷面板 */
+  #dbg{position:fixed;right:8px;top:8px;z-index:2001;background:rgba(0,0,0,.65);
+    color:#fff;padding:6px 10px;border-radius:8px;font:12px/1.3 system-ui,monospace}
+</style>
+</head>
+<body>
+
+<!-- 載入畫面 -->
+<div id="splash"><div class="box">
+  <img src="./assets/qrcode_guide.png" alt="Loading"/><div class="txt">載入中…</div>
+</div></div>
+
+<!-- 登入 -->
+<section id="gate" aria-label="登入闖關">
+  <div class="card">
+    <h1>圖書館 AR 闖關｜登入</h1>
+    <div class="grid">
+      <div class="row"><label for="uid">編號</label><input id="uid" placeholder="例如：A001"/></div>
+      <div class="row"><label for="uname">姓名</label><input id="uname" placeholder="王小明"/></div>
+      <div class="row"><label for="uemail">Email</label><input id="uemail" type="email" placeholder="name@example.com"/></div>
+      <button id="startBtn" class="primary">開始挑戰</button>
+      <div class="note">同一「編號」會續用前次集點紀錄（儲存在本機）。</div>
+    </div>
+  </div>
+</section>
+
+<!-- 集點卡 -->
+<section id="stamp" aria-label="集點卡">
+  <div id="who"></div>
+  <div id="posterWrap">
+    <img id="poster" src="./assets/landing.jpg" alt="集點卡"/>
+    <button class="spot pos-1" data-id="1" aria-label="公博樓"><span class="badge pending">挑戰</span></button>
+    <button class="spot pos-2" data-id="2" aria-label="濟時樓"><span class="badge pending">挑戰</span></button>
+    <button class="spot pos-3" data-id="3" aria-label="國璽樓"><span class="badge pending">挑戰</span></button>
+    <button class="spot pos-4" data-id="4" aria-label="舒德樓"><span class="badge pending">挑戰</span></button>
+  </div>
+</section>
+
+<!-- 返回 + AR 層 + 掃描框 +（動態掛載點） -->
+<button id="backBtn">返回集點卡</button>
+<div id="arLayer">
+  <div id="scanOverlay"><img id="scanImg" alt=""></div>
+  <div id="arMount"></div>
+</div>
+
+<!-- 診斷面板 -->
+<div id="dbg">idx: —</div>
+
+<script>
+/* splash */
+window.addEventListener('load',()=>{const s=document.getElementById('splash');s.style.opacity='0';setTimeout(()=>s.style.display='none',380);});
+
+/* 狀態元素 */
+const gate=document.getElementById('gate');
+const stamp=document.getElementById('stamp');
+const who=document.getElementById('who');
+const startBtn=document.getElementById('startBtn');
+const uid=document.getElementById('uid');
+const uname=document.getElementById('uname');
+const uemail=document.getElementById('uemail');
+
+const arLayer=document.getElementById('arLayer');
+const arMount=document.getElementById('arMount');
+const backBtn=document.getElementById('backBtn');
+const scanOv=document.getElementById('scanOverlay');
+const scanImgEl=document.getElementById('scanImg');
+const dbg=document.getElementById('dbg');
+
+/* 1..4 → 0..3；掃描框檔名 */
+const ID2IDX={1:0, 2:1, 3:2, 4:3};
+const SCAN_IMG={0:'AB',1:'SB',2:'MB',3:'NB'}; // NB=舒德樓
+
+let selectedId=null;      // 1..4
+let selectedIndex=null;   // 0..3
+let profile=null;
+let progress=[false,false,false,false];
+
+/* localStorage */
+function keyFor(id){return `FJULib_ARQuest_${id}`;}
+function loadProgress(id){const raw=localStorage.getItem(keyFor(id));if(!raw)return [false,false,false,false];try{const o=JSON.parse(raw);return Array.isArray(o.progress)&&o.progress.length===4?o.progress:[false,false,false,false];}catch{return [false,false,false,false];}}
+function saveProgress(){if(!profile)return;localStorage.setItem(keyFor(profile.id),JSON.stringify({profile,progress}));}
+
+/* UI */
+function renderWho(){who.textContent=`${profile.id}｜${profile.name}｜${profile.email}　進度：${progress.filter(x=>x).length}/4`;}
+function renderBadges(){
+  document.querySelectorAll('.spot').forEach(btn=>{
+    const id=parseInt(btn.dataset.id,10);
+    const idx=ID2IDX[id];
+    const badge=btn.querySelector('.badge');
+    if(progress[idx]){badge.className='badge passed';badge.textContent='已通關成功';}
+    else{badge.className='badge pending';badge.textContent='挑戰';}
+  });
+}
+
+/* 登入 */
+startBtn.addEventListener('click',()=>{
+  const id=uid.value.trim(),name=uname.value.trim(),email=uemail.value.trim();
+  if(!id||!name||!email){alert('請填寫完整：編號、姓名、Email');return;}
+  profile={id,name,email};
+  progress=loadProgress(id);
+  renderWho();renderBadges();
+  gate.style.display='none';stamp.style.display='flex';
+});
+
+/* 掃描框顯示/隱藏 */
+function showScannerBed(idx){
+  const key=SCAN_IMG[idx];
+  scanImgEl.src=`./scanner%20bed/${encodeURIComponent(key)}.png?v=${Date.now()}`;
+  scanOv.style.display='grid';
+}
+function hideScannerBed(){
+  scanOv.style.display='none';
+  scanImgEl.src='';
+}
+
+/* 關閉 MindAR 內建 overlay（以防 DOM 殘留） */
+function hideMindAROverlays(){
+  document.querySelectorAll('.mindar-ui-overlay,.mindar-ui-scanning,.mindar-ui-loading')
+    .forEach(el=>{ el.style.display='none'; el.remove(); });
+}
+
+/* === 動態建立 / 卸載 a-scene（關鍵修正） === */
+function mountScene(targetIdx){
+  // 動態插入全新的 <a-scene>
+  const html = `
+  <a-scene id="scene"
+    mindar-image="imageTargetSrc: ./targets.mind?v=${Date.now()}; maxTrack:1; filterMinCF:0.0001; filterBeta:0.05; missTolerance:10; warmupTolerance:5; uiScanning:no; uiLoading:no; uiError:no"
+    embedded color-space="sRGB"
+    renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true; alpha:true;"
+    vr-mode-ui="enabled:false" device-orientation-permission-ui="enabled:false">
+    <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
+    <a-entity id="t0" mindar-image-target="targetIndex:0"><a-plane width="1" height="0.6" material="opacity:0.001"></a-plane></a-entity>
+    <a-entity id="t1" mindar-image-target="targetIndex:1"><a-plane width="1" height="0.6" material="opacity:0.001"></a-plane></a-entity>
+    <a-entity id="t2" mindar-image-target="targetIndex:2"><a-plane width="1" height="0.6" material="opacity:0.001"></a-plane></a-entity>
+    <a-entity id="t3" mindar-image-target="targetIndex:3"><a-plane width="1" height="0.6" material="opacity:0.001"></a-plane></a-entity>
+    <a-entity light="type:ambient; intensity:0.9"></a-entity>
+    <a-entity light="type:directional; intensity:0.8" position="0 1 0"></a-entity>
+  </a-scene>`;
+  arMount.innerHTML = html;
+
+  const sceneEl = document.getElementById('scene');
+
+  // 綁定一次性的 target 事件
+  ['t0','t1','t2','t3'].forEach((id,idx)=>{
+    const anchor = sceneEl.querySelector('#'+id);
+    anchor.addEventListener('targetFound',()=>{
+      dbg.textContent=`idx: ${idx}（偵測到目標）`;
+      if(selectedIndex!==idx) return;
+      progress[idx]=true; saveProgress(); renderWho(); renderBadges();
+      unmountScene(); // 成功就卸載場景
+      arLayer.style.display='none'; backBtn.style.display='none'; stamp.style.display='flex';
+      setTimeout(()=>alert('通關成功！'),30);
+    });
+    anchor.addEventListener('targetLost',()=>{ if(selectedIndex===null) dbg.textContent='idx: —'; });
+  });
+
+  // 啟動 MindAR
+  sceneEl.addEventListener('loaded',()=>{
+    const sys = sceneEl.systems['mindar-image-system'];
+    if(sys?.start) sys.start();
+  });
+}
+
+function unmountScene(){
+  try{
+    const sceneEl = document.getElementById('scene');
+    if(sceneEl){
+      // 先嘗試停掉系統
+      try{ sceneEl.systems['mindar-image-system']?.stop?.(); }catch(e){}
+    }
+  }catch(e){}
+  // 移除整個 A-Frame 場景
+  arMount.innerHTML = '';
+  // 清掉 MindAR 生成的容器（避免殘留）
+  document.querySelectorAll('.mindar-container,.mindar-ui-overlay,.mindar-ui-scanning,.mindar-ui-loading')
+    .forEach(el=>el.remove());
+  hideScannerBed();
+  selectedId=null; selectedIndex=null;
+  dbg.textContent='idx: —';
+}
+/* ======================================== */
+
+/* 進入某館掃描 */
+document.querySelectorAll('.spot').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selectedId = parseInt(btn.dataset.id,10);   // 1..4
+    selectedIndex = ID2IDX[selectedId];         // 0..3
+    showScannerBed(selectedIndex);
+    arLayer.style.display='block'; backBtn.style.display='block'; stamp.style.display='none';
+    mountScene(selectedIndex);
+  });
+});
+
+/* 返回集點卡 */
+backBtn.addEventListener('click',()=>{
+  unmountScene();
+  arLayer.style.display='none'; backBtn.style.display='none'; stamp.style.display='flex';
+});
+
+/* 登入後顯示集點卡 */
+startBtn.addEventListener('click',()=>{}); // 上面已處理
+
+/* 初始：關閉殘留 overlay（保險） */
+hideMindAROverlays();
+</script>
+</body>
+</html>
