@@ -80,22 +80,22 @@
 <!-- 登入 -->
 <section id="gate" aria-label="登入闖關">
   <div class="card">
-    <h1>圖書館 AR 闖關｜登入</h1>
+    <h1>開始闖關｜登入</h1>
     <div class="grid">
-      <div class="row"><label for="uid">編號</label><input id="uid" placeholder="例如：A001"/></div>
-      <div class="row"><label for="uname">姓名</label><input id="uname" placeholder="王小明"/></div>
+      <div class="row"><label for="uid">學號</label><input id="uid" placeholder="請輸入學號"/></div>
+      <div class="row"><label for="uname">姓名</label><input id="uname" placeholder="請輸入真實姓名"/></div>
       <div class="row"><label for="uemail">Email</label><input id="uemail" type="email" placeholder="name@example.com"/></div>
       <button id="startBtn" class="primary">開始挑戰</button>
-      <div class="note">同一「編號」會續用前次集點紀錄（儲存在本機）。</div>
+      <div class="note">請務必輸入正確學號，同一組「學號」會保留前次闖關的紀錄（儲存在本機）。</div>
     </div>
   </div>
 </section>
 
 <!-- 集點卡 -->
-<section id="stamp" aria-label="集點卡">
+<section id="stamp" aria-label="闖關地圖">
   <div id="who"></div>
   <div id="posterWrap">
-    <img id="poster" src="./assets/landing.jpg" alt="集點卡"/>
+    <img id="poster" src="./assets/landing.jpg" alt="闖關地圖"/>
     <button class="spot pos-1" data-id="1" aria-label="公博樓"><span class="badge pending">挑戰</span></button>
     <button class="spot pos-2" data-id="2" aria-label="濟時樓"><span class="badge pending">挑戰</span></button>
     <button class="spot pos-3" data-id="3" aria-label="國璽樓"><span class="badge pending">挑戰</span></button>
@@ -104,7 +104,7 @@
 </section>
 
 <!-- 返回 + AR 層 + 掃描框 +（動態掛載點） -->
-<button id="backBtn">返回集點卡</button>
+<button id="backBtn">返回闖關地圖</button>
 <div id="arLayer">
   <div id="scanOverlay"><img id="scanImg" alt=""></div>
   <div id="arMount"></div>
@@ -272,4 +272,5 @@ hideMindAROverlays();
 </script>
 </body>
 </html>
+
 
