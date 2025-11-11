@@ -162,7 +162,7 @@ function renderBadges(){
 /* 登入 */
 startBtn.addEventListener('click',()=>{
   const id=uid.value.trim(),name=uname.value.trim(),email=uemail.value.trim();
-  if(!id||!name||!email){alert('請填寫完整：編號、姓名、Email');return;}
+  if(!id||!name||!email){alert('請填寫完整：學號、姓名、Email');return;}
   profile={id,name,email};
   progress=loadProgress(id);
   renderWho();renderBadges();
@@ -272,5 +272,6 @@ hideMindAROverlays();
 </script>
 </body>
 </html>
+
 
 
